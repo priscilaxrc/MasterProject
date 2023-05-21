@@ -1,0 +1,146 @@
+############################################################################
+# TCC USP/ESALQ - TESTE DOS DADOS DE MPOX 
+# DATASET MONKEYPOX: https://www.kaggle.com/datasets/deepcontractor/monkeypox-dataset-daily-updated?resource=download
+# BASEADO NAS AULAS SERIES TEMPORAIS PROF. FABIANO GUASTI LIMA
+############################################################################
+
+# Instalação e carregamento de pacotes 
+
+pacotes <- c("readxl","plotly","tidyverse","gridExtra","forecast","TTR",
+             "smooth", "tsibble", "fable","tsibbledata", "fpp3",
+             "urca")
+
+if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
+        instalador <- pacotes[!pacotes %in% installed.packages()]
+        for(i in 1:length(instalador)) {
+                install.packages(instalador, dependencies = T)
+                break()}
+        sapply(pacotes, require, character = T)
+} else {
+        sapply(pacotes, require, character = T)
+}
+
+# Analise casos de Monkeypox United States
+
+mpox <- read_excel("mpoxus.xlsx")
+View(mpox)
+
+# Verificando médias móveis
+
+ggplotly(
+  mpox %>%
+    mutate(Data = as.Date(Data),
+           media_movel = ma(por_dia, order=5)) %>%
+    ggplot() +
+    geom_line(aes(x = Data, y = por_dia, color = "Por Dia")) +
+    geom_line(aes(x = Data, y = media_movel, color = "Média Móvel"), size = 1) +
+    labs(color = "Legenda:",
+         x = "Data",
+         y = "Comportamento da MPOX") +
+    scale_color_viridis_d() +
+    scale_x_date(date_labels = "%m-%Y", date_breaks = "1 month") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.4),
+          panel.background = element_rect(fill = "white", color = "black"),
+          panel.grid = element_line(color = "grey90"),
+          panel.border = element_rect(color = "black", fill = NA),
+          legend.position = "bottom")
+) %>% layout(showlegend = TRUE,
+             legend = list(orientation = "h"))
+
+# Gráfico Box-Plot para verificar se temos outliers
+
+mpox %>%
+  mutate(Data = as.Date(Data),
+         media_movel = ma(por_dia, order=5)) %>%
+  ggplot() +
+  geom_boxplot(aes(x = Data, y = por_dia, color = "Por Dia")) +
+  labs(x = "Data",
+       y = "Comportamento da MPOX") +
+  scale_color_viridis_d() +
+  scale_x_date(date_labels = "%m-%Y", date_breaks = "1 month") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.4),
+        panel.background = element_rect(fill = "white", color = "black"),
+        panel.grid = element_line(color = "grey90"),
+        panel.border = element_rect(color = "black", fill = NA),
+        legend.position = "none")
+
+#### Limpando os dados com comando TSCLEAN
+
+mpox %>%
+  mutate(Data = as.Date(Data),
+         mpox_suave = tsclean(por_dia),
+         media_movel = ma(por_dia, order=5)) %>%
+  ggplot() +
+  geom_line(aes(x = Data, y = por_dia, color = "Série Original"), size = 1) +
+  geom_line(aes(x = Data, y = mpox_suave, color = "Série Suavizada")) +
+  geom_line(aes(x = Data, y = media_movel, color = "Média Móvel"), size = 1) +
+  labs(color = "Legenda:",
+       x = "Data",
+       y = "Comportamento da MPOX") +
+  scale_color_viridis_d() +
+  scale_x_date(date_labels = "%m-%Y", date_breaks = "1 month") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.4),
+        panel.background = element_rect(fill = "white", color = "black"),
+        panel.grid = element_line(color = "grey90"),
+        panel.border = element_rect(color = "black", fill = NA),
+        legend.position = "bottom")
+
+# Para saber quais pontos foram removidos e quais entraram no lugar
+
+tsoutliers(mpox$por_dia)
+
+## Cálculo da média móvel não centralizada
+
+ggplotly(
+ mpox %>%
+    mutate(Data = as.Date(Data),
+           media_movel_nao_centralizada = SMA(por_dia, 5)) %>%
+    ggplot() +
+    geom_line(aes(x = Data, y = por_dia, color = "Por Dia")) +
+    geom_line(aes(x = Data, y = media_movel_nao_centralizada,
+                  color = "Média Móvel Não Centralizada"), size = 1) +
+    labs(color = "Legenda:",
+         x = "Data",
+         y = "Comportamento da MPOX") +
+    scale_color_viridis_d() +
+    scale_x_date(date_labels = "%m-%Y", date_breaks = "1 month") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.4),
+          panel.background = element_rect(fill = "white", color = "black"),
+          panel.grid = element_line(color = "grey90"),
+          panel.border = element_rect(color = "black", fill = NA),
+          legend.position = "bottom")
+) %>% layout(showlegend = TRUE,
+             legend = list(orientation = "h"))
+
+
+# Decompor serie temporal em Tedência, Sazonal e Erros
+# Assumr inicialmente uma série temporal simples - vide excel
+
+s=ts(c(10,14,8,25,16,22,14,35,15,27,18,40,28,40,25,65), start=c(2022,1),
+     end=c(2022,4), frequency = 2)
+plot(s)
+
+# Decomposição pelo modelo ADITIVO
+
+decompa=decompose(s,type = "additive")
+plot(decompa)
+
+decompa$trend
+decompa$seasonal
+decompa$random
+
+# Decomposição pelo modelo MULTIPLICATIVO
+
+decompm=decompose(s,type = "multiplicative")
+plot(decompm)
+
+decompm$trend
+decompm$seasonal
+decompm$random
+
+##### ACF #####
+
+
+
+##### PACF #####
+
